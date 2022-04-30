@@ -14,6 +14,7 @@ keyKey = '{http://bmi.ch.abb.com/kbs/nm}key'
 RepnameKey = '{http://bmi.ch.abb.com/kbs/nm}repname'
 valuerepitemKey = '{http://bmi.ch.abb.com/kbs/rr}value_repitem_ritext'
 ritextKey = '{http://bmi.ch.abb.com/kbs/nm}ritext'
+iidKey = '{http://bmi.ch.abb.com/kbs/ci}iid'
 
 valueKey = '{http://bmi.ch.abb.com/kbs/pv}value'
 
@@ -22,6 +23,65 @@ ns = { 'rr' : 'http://bmi.ch.abb.com/kbs/rr', 'db' : 'http://bmi.ch.abb.com/kbs/
 ErrorTagsNotinLog= None
 ErrorTagsInLog = None
 LogXML = None
+TextPrefix = '{http://bmi.ch.abb.com/kbs/'
+TextCI = TextPrefix + 'ci}'
+TextNM = TextPrefix + 'nm}'
+TextDB = TextPrefix + 'db}'
+TextKY = TextPrefix + 'ky}'
+TextRR = TextPrefix + 'rr}'
+TextPK = TextPrefix + 'pk}'
+TextPV = TextPrefix + 'pv}'
+LogKeys = {
+    'iid': TextCI + 'iid',
+    'parentid': TextCI + 'parentid',
+    'typeid': TextCI + 'typeid',
+    'remoteid': TextCI + 'remoteid',
+    'ricode': TextKY + 'ricode',
+    'sigid': TextCI + 'sigid',
+    'ritext': TextNM + 'ritext',
+    'aliasname': TextDB + 'aliasname',
+    'riclass': TextDB + 'riclass',
+    'riunit': TextDB + 'riunit',
+    'description': TextDB + 'description',
+    'ricodea': TextDB + 'ricodea',
+    #'ricodeb': TextDB + 'ricodeb',
+    'textpropid': TextDB + 'textpropid',
+    'binpropid': TextDB + 'binpropid',
+    'aggrfunca': TextDB + 'aggrfunca',
+    'aggrfuncb': TextDB + 'aggrfuncb',
+    'aggrfuncc': TextDB + 'aggrfuncc',
+    'aggrfuncd': TextDB + 'aggrfuncd',
+    'aggrfunce': TextDB + 'aggrfunce',
+    'aggrfuncf': TextDB + 'aggrfuncf',
+    'aggrfuncg': TextDB + 'aggrfuncg',
+    'aggrfunch': TextDB + 'aggrfunch',
+    'aggrfunci': TextDB + 'aggrfunci',
+    'aggrfuncj': TextDB + 'aggrfuncj',
+    'aggrfunck': TextDB + 'aggrfunck',
+    'aggrfuncl': TextDB + 'aggrfuncl',
+    'aggrfuncm': TextDB + 'aggrfuncm',
+    'ricodea_repitem_ritext': TextRR + 'ricodea_repitem_ritext',
+    'ricodeb_repitem_ritext': TextRR + 'ricodeb_repitem_ritext',
+    'ricodec_repitem_ritext': TextRR + 'ricodec_repitem_ritext',
+    'ricoded_repitem_ritext': TextRR + 'ricoded_repitem_ritext',
+    'ricodee_repitem_ritext': TextRR + 'ricodee_repitem_ritext',
+    'ricodef_repitem_ritext': TextRR + 'ricodef_repitem_ritext',
+    'ricodeg_repitem_ritext': TextRR + 'ricodeg_repitem_ritext',
+    'ricodeh_repitem_ritext': TextRR + 'ricodeh-repitem_ritext',
+    'ricodei_repitem_ritext': TextRR + 'ricodei_repitem_ritext',
+    'ricodej_repitem_ritext': TextRR + 'ricodej_repitem_ritext',
+    'ricodek_repitem_ritext': TextRR + 'ricodek_repitem_ritext',
+    'ricodel_repitem_ritext': TextRR + 'ricodel_repitem_ritext',
+    'ricodem_repitem_ritext': TextRR + 'ricodem_repitem_ritext',
+    'contents': TextDB + 'contents',
+    'riscale': TextDB + 'riscale',
+    'valuesignal': TextDB + 'valuesignal',
+    'valuesignal_signalitem_signame': TextRR + 'valuesignal_signalitem_signame',
+    'sortricode': TextDB + 'sortricode',
+    'cumricode': TextDB + 'cumricode',
+    'inflowsignal': TextDB + 'inflowsignal',
+    'outflowsignal': TextDB + 'outflowsignal',
+    'manualsignal': TextDB + 'manualsignal'}
 
 
 
@@ -75,16 +135,20 @@ def ProcessFile(path):
 def SingleColumn(Report, KMTagList):
     global ErrorTagsNotinLog
     repName = XMLAttribValue(Report,RepnameKey)
+    repiid = XMLAttribValue(Report,iidKey)
+
+    repName = repName + '_' + repiid
 
     if repName != '':
         print(repName)
         repName = repName.replace("/","_")
         csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv", 'w',encoding='UTF8')
         myWriter = csv.writer(csvFile)
-        Tags = []
-        Header1 = []
-        Header2 = []
-        Header3 = []
+        Tags = ['KM Tag']
+        AVEVATags = ['AVEVA Tag']
+        Header1 = ['Header 1']
+        Header2 = ['Header 2']
+        Header3 = ['Header 3']
 
 
 
@@ -108,6 +172,7 @@ def SingleColumn(Report, KMTagList):
 
 
                 AVEVATag =  KMTagLookup(KMTagList,Tag)
+                AVEVATags.append(AVEVATag)
 
                 if AVEVATag == '':
                     LogTag = LogXMLLookup(Tag)
@@ -119,8 +184,9 @@ def SingleColumn(Report, KMTagList):
                     else:
                         Row = [repName]
                         Values = LogTag.attrib.values()
-                        for attrValue in Values:
-                            Row.append(attrValue)
+                        Row.append(XMLAttribValue(LogTag,LogKeys['ritext']))
+                        Row.append(XMLAttribValue(LogTag, LogKeys['description']))
+                        Row.append(XMLAttribValue(LogTag, LogKeys['valuesignal']))
                         ErrorTagsInLog.writerow(Row)
                     #print('No AVEVA Tag found for {0}.  Log tag {1}'.format(Tag, LogTag))
 
@@ -133,6 +199,7 @@ def SingleColumn(Report, KMTagList):
 
 
         myWriter.writerow(Tags)
+        myWriter.writerow(AVEVATags)
         myWriter.writerow(Header1)
         myWriter.writerow(Header2)
         myWriter.writerow(Header3)
@@ -140,6 +207,7 @@ def SingleColumn(Report, KMTagList):
         Header1.clear()
         Header2.clear()
         Header3.clear()
+        AVEVATags.clear()
 
         csvFile.close()
 
@@ -178,7 +246,7 @@ def HeaderLookup(myParent, HeaderName):
         else:
             return ''
     except Exception as ex:
-        print('Error getting key {0} for element {1} - {2}'.format(myParent.text, HeaderName, ex))
+        print('Error getting key {0} for element {1} - {2}'.format(myParent, HeaderName, ex))
         return ''
 
 def XMLAttribValue(myElement,myKey):
@@ -188,7 +256,7 @@ def XMLAttribValue(myElement,myKey):
         else:
             return ''
     except Exception as ex:
-        print('Error getting key {0} for element {1} - {2}'.format(myElement.text, myKey, ex))
+        print('Error getting key {0} for element {1} - {2}'.format(myElement, myKey, ex))
         return ''
 
 
