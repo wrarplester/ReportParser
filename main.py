@@ -15,6 +15,8 @@ RepnameKey = '{http://bmi.ch.abb.com/kbs/nm}repname'
 valuerepitemKey = '{http://bmi.ch.abb.com/kbs/rr}value_repitem_ritext'
 ritextKey = '{http://bmi.ch.abb.com/kbs/nm}ritext'
 iidKey = '{http://bmi.ch.abb.com/kbs/ci}iid'
+value_signalitem_signameKey = '{http://bmi.ch.abb.com/kbs/rr}value_signalitem_signame'
+
 
 valueKey = '{http://bmi.ch.abb.com/kbs/pv}value'
 
@@ -103,7 +105,7 @@ def xmlParse():
 
     for path, subdirs, files in os.walk(mypath):
         for name in files:
-            if ".xml" in name:
+            if ".xml" in name and "old" not in name:
                 fullPath = os.path.join(path, name)
                 print (fullPath)
                 ProcessFile(fullPath)
@@ -122,8 +124,13 @@ def ProcessFile(path):
         KMLookupCSV.close()
         for tag in root_node.findall('.//REPORT30'):
             templateName = XMLAttribValue(tag, templateKey)
+            #One Tag per column
             if templateName == 'Operation Rep 2 Pages' or templateName == 'Operation Rep 2 Pages' or templateName == "Operation Rep 2 Pages" or templateName == "Production Report Leach" or templateName == "Production Report Leach" or templateName == "Operation Rep 3 Page" or templateName == "Production Report Maint Rev1":
-                SingleColumn(tag, data)
+                #SingleColumn(tag, data)
+                print('singleColumn')
+            elif templateName == "Manual Entries by Events":
+                ManualEntriesbyEvent(tag,data)
+
 
 
         pass
@@ -131,6 +138,30 @@ def ProcessFile(path):
         print('Error with {0} - {1}'.format(path,ex))
         pass
 
+def ManualEntriesbyEvent(Report, KMTagList):
+    global ErrorTagsNotinLog
+    repName = XMLAttribValue(Report,RepnameKey)
+    repiid = XMLAttribValue(Report,iidKey)
+    repName = repName + '_' + repiid
+
+    if repName != '':
+        AVEVATags = ['AVEVA Tag']
+        print(repName)
+        repName = repName.replace("/","_")
+        csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv", 'w', encoding='UTF8')
+        myWriter = csv.writer(csvFile)
+        try:
+            SignalItemPropertyList = Report.findall('.//PROPERTY[@' + value_signalitem_signameKey + ']')
+            for Property in SignalItemPropertyList:
+                SignalName = Property.attrib[value_signalitem_signameKey]
+                LogTag = KMTagLookupSignal(KMTagList, SignalName)
+                AVEVATag = KMTagLookup(KMTagList, XMLAttribValue(LogTag,LogKeys['ritext']))
+                AVEVATags.append(AVEVATag)
+
+        except Exception as ex:
+            print('Error {0}'.format(str(ex)))
+    myWriter.writerow(AVEVATags)
+    csvFile.close()
 
 def SingleColumn(Report, KMTagList):
     global ErrorTagsNotinLog
@@ -194,7 +225,7 @@ def SingleColumn(Report, KMTagList):
                 Header2.append(HTMLText2)
                 Header3.append(HTMLText3)
             except Exception as ex:
-                print('Error {0}',str(ex))
+                print('Error {0}'.format(str(ex)))
 
 
 
@@ -222,6 +253,16 @@ def KMTagLookup(KMTagList, Tag):
 
 
     return AVEVATag
+
+
+def KMTagLookupSignal(KMTagList, SignalTag):
+
+    AVEVATag = ''
+    if LogXML is None:
+        InitXML()
+    Filter = './/REPITEM[@' + LogKeys['valuesignal_signalitem_signame'] + '="' + SignalTag + '"]'
+    TagElement = LogXML.find(Filter)
+    return TagElement
 
 def InitXML():
     path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/2022-03-18 XML export/Logs.xml'
