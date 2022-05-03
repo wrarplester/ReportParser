@@ -144,22 +144,34 @@ def ManualEntriesbyEvent(Report, KMTagList):
     repiid = XMLAttribValue(Report,iidKey)
     repName = repName + '_' + repiid
 
-    if repName != '':
+    if repName != '' and 'OLD' not in repName:
         AVEVATags = ['AVEVA Tag']
+        SignalNames = ['Signal Name']
+        InputNames = ['Input Names']
         print(repName)
         repName = repName.replace("/","_")
         csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv", 'w', encoding='UTF8')
         myWriter = csv.writer(csvFile)
         try:
             SignalItemPropertyList = Report.findall('.//PROPERTY[@' + value_signalitem_signameKey + ']')
+
             for Property in SignalItemPropertyList:
                 SignalName = Property.attrib[value_signalitem_signameKey]
+                Filter = './/PROPERTY[@' + value_signalitem_signameKey + '= "' + SignalName + '"]...'
+                Parent = Report.find(Filter)
+                inputFilter = './/PROPERTY[@' + keyKey + '="InputName"]'
+                InputProp = Parent.find(inputFilter)
+                InputName = XMLAttribValue(InputProp,valueKey)
                 LogTag = KMTagLookupSignal(KMTagList, SignalName)
                 AVEVATag = KMTagLookup(KMTagList, XMLAttribValue(LogTag,LogKeys['ritext']))
                 AVEVATags.append(AVEVATag)
+                SignalNames.append(SignalName)
+                InputNames.append(InputName)
 
         except Exception as ex:
             print('Error {0}'.format(str(ex)))
+    myWriter.writerow(InputNames)
+    myWriter.writerow(SignalNames)
     myWriter.writerow(AVEVATags)
     csvFile.close()
 
@@ -170,7 +182,7 @@ def SingleColumn(Report, KMTagList):
 
     repName = repName + '_' + repiid
 
-    if repName != '':
+    if repName != '' and 'OLD' not in repName:
         print(repName)
         repName = repName.replace("/","_")
         csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv", 'w',encoding='UTF8')
