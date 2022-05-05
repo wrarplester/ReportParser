@@ -16,7 +16,7 @@ valuerepitemKey = '{http://bmi.ch.abb.com/kbs/rr}value_repitem_ritext'
 ritextKey = '{http://bmi.ch.abb.com/kbs/nm}ritext'
 iidKey = '{http://bmi.ch.abb.com/kbs/ci}iid'
 value_signalitem_signameKey = '{http://bmi.ch.abb.com/kbs/rr}value_signalitem_signame'
-
+signameKey = '{http://bmi.ch.abb.com/kbs/nm}signame'
 
 valueKey = '{http://bmi.ch.abb.com/kbs/pv}value'
 
@@ -24,7 +24,12 @@ ns = { 'rr' : 'http://bmi.ch.abb.com/kbs/rr', 'db' : 'http://bmi.ch.abb.com/kbs/
 
 ErrorTagsNotinLog= None
 ErrorTagsInLog = None
+Nosignals = None
+SignalsWithoutLogs = None
+
 LogXML = None
+
+SignalXML = None
 TextPrefix = '{http://bmi.ch.abb.com/kbs/'
 TextCI = TextPrefix + 'ci}'
 TextNM = TextPrefix + 'nm}'
@@ -95,13 +100,20 @@ def xmlParse():
     for f in files:
         os.remove(f)
 
-    CSVFile1  = open("/Users/ryanplester/Downloads/Sherritt_CSV/No KM Lookup In Logs.csv", 'w', encoding='UTF8')
+    CSVFile1  = open("/Users/ryanplester/Downloads/Sherritt_CSV/@No KM Lookup In Logs.csv", 'w', encoding='UTF8')
     global ErrorTagsInLog
     ErrorTagsInLog = csv.writer(CSVFile1)
-    CSVFile2 = open("/Users/ryanplester/Downloads/Sherritt_CSV/No KM Lookup No Logs.csv", 'w', encoding='UTF8')
+    CSVFile2 = open("/Users/ryanplester/Downloads/Sherritt_CSV/@No KM Lookup No Logs.csv", 'w', encoding='UTF8')
     global ErrorTagsNotinLog
     ErrorTagsNotinLog = csv.writer(CSVFile2)
+    CSVFile3 = open("/Users/ryanplester/Downloads/Sherritt_CSV/@No Signal.csv", 'w', encoding='UTF8')
+    global Nosignals
+    NoSignals = csv.writer(CSVFile3)
+    CSVFile4 = open("/Users/ryanplester/Downloads/Sherritt_CSV/@Signals Without Logs.csv", 'w', encoding='UTF8')
+    global SignalsWithoutLogs
+    SignalsWithoutLogs = csv.writer(CSVFile4)
     mypath = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/KM reports trends XML (1)'
+
 
     for path, subdirs, files in os.walk(mypath):
         for name in files:
@@ -126,8 +138,8 @@ def ProcessFile(path):
             templateName = XMLAttribValue(tag, templateKey)
             #One Tag per column
             if templateName == 'Operation Rep 2 Pages' or templateName == 'Operation Rep 2 Pages' or templateName == "Operation Rep 2 Pages" or templateName == "Production Report Leach" or templateName == "Production Report Leach" or templateName == "Operation Rep 3 Page" or templateName == "Production Report Maint Rev1":
-                #SingleColumn(tag, data)
-                print('singleColumn')
+                SingleColumn(tag, data)
+                #print('singleColumn')
             elif templateName == "Manual Entries by Events":
                 ManualEntriesbyEvent(tag,data)
 
@@ -164,6 +176,24 @@ def ManualEntriesbyEvent(Report, KMTagList):
                 InputName = XMLAttribValue(InputProp,valueKey)
                 LogTag = KMTagLookupSignal(KMTagList, SignalName)
                 AVEVATag = KMTagLookup(KMTagList, XMLAttribValue(LogTag,LogKeys['ritext']))
+
+
+
+                if AVEVATag == '':
+                    signalElement = SignalXMLLookup(SignalName)
+                    if signalElement is None:
+                        global Nosignals
+                        Nosignals.writerow([repName, SignalName])
+                    elif LogTag is None:
+                        global ErrorTagsNotinLog
+                        ErrorTagsNotinLog.writerow([repName,'Signal - ' + SignalName])
+                    else:
+                        Row = [repName]
+                        Values = LogTag.attrib.values()
+                        Row.append(XMLAttribValue(LogTag, LogKeys['ritext']))
+                        Row.append(XMLAttribValue(LogTag, LogKeys['description']))
+                        Row.append(XMLAttribValue(LogTag, LogKeys['valuesignal']))
+                        ErrorTagsInLog.writerow(Row)
                 AVEVATags.append(AVEVATag)
                 SignalNames.append(SignalName)
                 InputNames.append(InputName)
@@ -289,6 +319,19 @@ def LogXMLLookup(Tag):
     TagElement = LogXML.find(Filter)
     return TagElement
 
+def InitSignalXML():
+    path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/2022-03-18 XML export/Signals.xml'
+    global SignalXML
+    SignalXML = ET.parse(path).getroot()
+def SignalXMLLookup(Tag):
+    if SignalXML is None:
+        InitSignalXML()
+
+    #Filter = './/REPITEM[@' + ritextKey + '="' + Tag + '"]'
+    Filter = './/SIGNALITEM[@' + signameKey + '="' + Tag + '"]'
+    TagElement = SignalXML.find(Filter)
+    return TagElement
+
 
 def HeaderLookup(myParent, HeaderName):
     try:
@@ -304,7 +347,9 @@ def HeaderLookup(myParent, HeaderName):
 
 def XMLAttribValue(myElement,myKey):
     try:
-        if myKey in myElement.attrib:
+        if myElement is None:
+            return ''
+        elif myKey in myElement.attrib:
             return myElement.attrib[myKey]
         else:
             return ''
