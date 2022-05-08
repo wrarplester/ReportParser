@@ -3,7 +3,7 @@
 # Press ⌃R to execute it or replace it with your code.
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
 import os
-import xml.dom.minidom
+
 import xml.etree.ElementTree as ET
 import csv
 import glob
@@ -109,6 +109,7 @@ def xmlParse():
     CSVFile1  = open("/Users/ryanplester/Downloads/Sherritt_CSV/@No KM Lookup In Logs.csv", 'w', encoding='UTF8')
     global ErrorTagsInLog
     ErrorTagsInLog = csv.writer(CSVFile1)
+    ErrorTagsInLog.writerow(['Report Name','RItext', 'Description', 'Signal'])
     CSVFile2 = open("/Users/ryanplester/Downloads/Sherritt_CSV/@No KM Lookup No Logs.csv", 'w', encoding='UTF8')
     global ErrorTagsNotinLog
     ErrorTagsNotinLog = csv.writer(CSVFile2)
@@ -141,7 +142,7 @@ def ProcessFile(path):
         #get the root node and the KM tag lookup
         root_node = ET.parse(path).getroot()
         KMLookupCSV = open("/Users/ryanplester/Downloads/KM Lookup - Sheet1.csv")
-        KMLookupReader = csv.reader(KMLookupCSV);
+        KMLookupReader = csv.reader(KMLookupCSV)
         data = list(KMLookupReader)
         KMLookupCSV.close()        
         
@@ -152,13 +153,13 @@ def ProcessFile(path):
                     or templateName == "Operation Rep 2 Pages" or templateName == "Production Report Leach" \
                     or templateName == "Production Report Leach" or templateName == "Operation Rep 3 Page" \
                     or templateName == "Production Report Maint Rev1": 
-                #SingleColumn(tag, data)
+                SingleColumn(tag, data)
                 #print('singleColumn')
-                Text = 'singleColumn'
+                #Text = 'singleColumn'
             #manual entries
             elif templateName == "Manual Entries by Events" or templateName == "Targets Manual Entries Per":
-                #ManualEntriesbyEvent(tag,data)
-                Text = 'singleColumn'
+                ManualEntriesbyEvent(tag,data)
+                #Text = 'singleColumn'
                 #print('manual')
             elif templateName == "Production Report":
                 ProductionReport(tag, data)
@@ -230,13 +231,13 @@ def ManualEntriesbyEvent(Report, KMTagList):
 
     #check for no name in the report or the word 'OLD'.  Ignore these
     if repName != '' and 'OLD' not in repName:
+        rowDataItems = []
         AVEVATags = ['AVEVA Tag']
         SignalNames = ['Signal Name']
         InputNames = ['Input Names']
         print(repName)
         repName = repName.replace("/","_")
-        csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv", 'w', encoding='UTF8')
-        myWriter = csv.writer(csvFile)
+
         try:
             #find all the lines that reference signals
             SignalItemPropertyList = Report.findall('.//PROPERTY[@' + value_signalitem_signameKey + ']')
@@ -289,10 +290,15 @@ def ManualEntriesbyEvent(Report, KMTagList):
             print('Error {0}'.format(str(ex)))
             
     #write the info to CSC
-    myWriter.writerow(InputNames)
-    myWriter.writerow(SignalNames)
-    myWriter.writerow(AVEVATags)
-    csvFile.close()
+
+        if len(AVEVATags) > 1 or len(InputNames) > 1 or len(SignalNames) > 1:
+
+            csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv", 'w', encoding='UTF8')
+            myWriter = csv.writer(csvFile)
+            myWriter.writerow(InputNames)
+            myWriter.writerow(SignalNames)
+            myWriter.writerow(AVEVATags)
+            csvFile.close()
 
 def SingleColumn(Report, KMTagList):
     global ErrorTagsNotinLog
@@ -305,8 +311,7 @@ def SingleColumn(Report, KMTagList):
     if repName != '' and 'OLD' not in repName:
         print(repName)
         repName = repName.replace("/","_")
-        csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv", 'w',encoding='UTF8')
-        myWriter = csv.writer(csvFile)
+
         Tags = ['KM Tag']
         AVEVATags = ['AVEVA Tag']
         Header1 = ['Header 1']
@@ -319,7 +324,7 @@ def SingleColumn(Report, KMTagList):
             LogItemPropertyList = Report.findall('.//PROPERTY[@' + valuerepitemKey + ']')
         except Exception as exFind:
             print('Error finding Items in report {0}'.format(repName))
-            csvFile.close()
+
             return
 
         for Property in LogItemPropertyList:
@@ -356,18 +361,15 @@ def SingleColumn(Report, KMTagList):
 
 
         #write data to the CSV and close it
-        myWriter.writerow(Tags)
-        myWriter.writerow(AVEVATags)
-        myWriter.writerow(Header1)
-        myWriter.writerow(Header2)
-        myWriter.writerow(Header3)
-        Tags.clear()
-        Header1.clear()
-        Header2.clear()
-        Header3.clear()
-        AVEVATags.clear()
-
-        csvFile.close()
+        if len(Tags) > 1 or len(AVEVATags) > 1:
+            csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv", 'w',encoding='UTF8')
+            myWriter = csv.writer(csvFile)
+            myWriter.writerow(Tags)
+            myWriter.writerow(AVEVATags)
+            myWriter.writerow(Header1)
+            myWriter.writerow(Header2)
+            myWriter.writerow(Header3)
+            csvFile.close()
         
 #lookup the log tag in the KM lookup table
 def KMTagLookup(KMTagList, Tag):
