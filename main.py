@@ -7,7 +7,14 @@ import os
 import xml.etree.ElementTree as ET
 import csv
 import glob
-
+TextPrefix = '{http://bmi.ch.abb.com/kbs/'
+TextCI = TextPrefix + 'ci}'
+TextNM = TextPrefix + 'nm}'
+TextDB = TextPrefix + 'db}'
+TextKY = TextPrefix + 'ky}'
+TextRR = TextPrefix + 'rr}'
+TextPK = TextPrefix + 'pk}'
+TextPV = TextPrefix + 'pv}'
 #the various attributes available in reports
 templateKey = '{http://bmi.ch.abb.com/kbs/rr}tplid_template_tplname'
 descKey = '{http://bmi.ch.abb.com/kbs/db}description'
@@ -18,6 +25,8 @@ ritextKey = '{http://bmi.ch.abb.com/kbs/nm}ritext'
 iidKey = '{http://bmi.ch.abb.com/kbs/ci}iid'
 value_signalitem_signameKey = '{http://bmi.ch.abb.com/kbs/rr}value_signalitem_signame'
 signameKey = '{http://bmi.ch.abb.com/kbs/nm}signame'
+parentidKey = '{http://bmi.ch.abb.com/kbs/ci}parentid'
+foldernameKey = TextNM + 'foldername'
 
 valueKey = '{http://bmi.ch.abb.com/kbs/pv}value'
 
@@ -31,14 +40,7 @@ SignalsWithoutLogs = None
 LogXML = None
 
 SignalXML = None
-TextPrefix = '{http://bmi.ch.abb.com/kbs/'
-TextCI = TextPrefix + 'ci}'
-TextNM = TextPrefix + 'nm}'
-TextDB = TextPrefix + 'db}'
-TextKY = TextPrefix + 'ky}'
-TextRR = TextPrefix + 'rr}'
-TextPK = TextPrefix + 'pk}'
-TextPV = TextPrefix + 'pv}'
+
 
 #all of the atrribs available in log tags
 LogKeys = {
@@ -124,7 +126,7 @@ def xmlParse():
     #iterate through the xml files in the path
     for path, subdirs, files in os.walk(mypath):
         for name in files:
-            if ".xml" in name and "old" not in name:
+            if ".xml" in name and "old" not in name and 'User' not in name:
                 fullPath = os.path.join(path, name)
                 print (fullPath)
                 ProcessFile(fullPath)
@@ -147,22 +149,25 @@ def ProcessFile(path):
         KMLookupCSV.close()        
         
         for tag in root_node.findall('.//REPORT30'):
-            templateName = XMLAttribValue(tag, templateKey)
-            #One Tag per column
-            if templateName == 'Operation Rep 2 Pages' or templateName == 'Operation Rep 2 Pages' \
-                    or templateName == "Operation Rep 2 Pages" or templateName == "Production Report Leach" \
-                    or templateName == "Production Report Leach" or templateName == "Operation Rep 3 Page" \
-                    or templateName == "Production Report Maint Rev1": 
-                SingleColumn(tag, data)
-                #print('singleColumn')
-                #Text = 'singleColumn'
-            #manual entries
-            elif templateName == "Manual Entries by Events" or templateName == "Targets Manual Entries Per":
-                ManualEntriesbyEvent(tag,data)
-                #Text = 'singleColumn'
-                #print('manual')
-            elif templateName == "Production Report":
-                ProductionReport(tag, data)
+            reportFolder = FindReportFolder(tag, root_node)
+            folderName = XMLAttribValue(reportFolder, foldernameKey)
+            if 'Old' not in folderName:
+                templateName = XMLAttribValue(tag, templateKey)
+                #One Tag per column
+                if templateName == 'Operation Rep 2 Pages' or templateName == 'Operation Rep 2 Pages' \
+                        or templateName == "Operation Rep 2 Pages" or templateName == "Production Report Leach" \
+                        or templateName == "Production Report Leach" or templateName == "Operation Rep 3 Page" \
+                        or templateName == "Production Report Maint Rev1":
+                    SingleColumn(tag, data)
+                    #print('singleColumn')
+                    #Text = 'singleColumn'
+                #manual entries
+                elif templateName == "Manual Entries by Events" or templateName == "Targets Manual Entries Per":
+                    ManualEntriesbyEvent(tag,data)
+                    #Text = 'singleColumn'
+                    #print('manual')
+                elif templateName == "Production Report":
+                    ProductionReport(tag, data)
         pass
     except Exception as ex:
         print('Error with {0} - {1}'.format(path, ex))
@@ -466,6 +471,14 @@ def LogTagErrors(repName, logTagName):
         Row.append(XMLAttribValue(LogTag, LogKeys['description']))
         Row.append(XMLAttribValue(LogTag, LogKeys['valuesignal']))
         ErrorTagsInLog.writerow(Row)
+
+
+def FindReportFolder(reportElement, rootElement):
+    parentid = XMLAttribValue(reportElement, parentidKey)
+    Filter = './/FOLDERITEM[@' + iidKey + '="' + parentid + '"]'
+    FolderElement = rootElement.find(Filter)
+    return FolderElement
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
