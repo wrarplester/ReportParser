@@ -143,7 +143,7 @@ def ProcessFile(path):
     try:
         #get the root node and the KM tag lookup
         root_node = ET.parse(path).getroot()
-        KMLookupCSV = open("/Users/ryanplester/Downloads/KM Lookup - Sheet1.csv")
+        KMLookupCSV = open("/Users/ryanplester/Downloads/KM Lookup - Sheet3.csv")
         KMLookupReader = csv.reader(KMLookupCSV)
         data = list(KMLookupReader)
         KMLookupCSV.close()        
