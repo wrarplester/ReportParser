@@ -96,6 +96,9 @@ LogKeys = {
     'manualsignal': TextDB + 'manualsignal'}
 
 
+Check_Tags = []
+Ref_Count = 0
+
 
 #{'real_person': 'http://people.example.com', 'role': 'http://characters.example.com'}
 
@@ -123,6 +126,15 @@ def xmlParse():
     SignalsWithoutLogs = csv.writer(CSVFile4)
     mypath = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/KM reports trends XML (1)'
 
+    CheckTagFile = open('/Users/ryanplester/Downloads/Calc Accumulator References - Sheet1.csv')
+    CSVCheckTagFile = csv.DictReader(CheckTagFile)
+    global Check_Tags
+    for val in CSVCheckTagFile:
+        TagName = val['nm_ritext']
+        Check_Tags.append(TagName)
+
+
+
     #iterate through the xml files in the path
     for path, subdirs, files in os.walk(mypath):
         for name in files:
@@ -137,6 +149,8 @@ def xmlParse():
     CSVFile3.close()
     CSVFile4.close()
 
+    print(Ref_Count)
+
 
 
 def ProcessFile(path):
@@ -147,7 +161,8 @@ def ProcessFile(path):
         KMLookupReader = csv.reader(KMLookupCSV)
         data = list(KMLookupReader)
         KMLookupCSV.close()        
-        
+        getFlowSheets(root_node,data)
+
         for tag in root_node.findall('.//REPORT30'):
             reportFolder = FindReportFolder(tag, root_node)
             folderName = XMLAttribValue(reportFolder, foldernameKey)
@@ -168,10 +183,55 @@ def ProcessFile(path):
                     #print('manual')
                 elif templateName == "Production Report":
                     ProductionReport(tag, data)
+                elif 'Trend' in templateName:
+                    Trends(tag,data)
         pass
     except Exception as ex:
         print('Error with {0} - {1}'.format(path, ex))
         pass
+def getFlowSheets (root,KMTagList):
+    Filter = './/FOLDERITEM[@' + foldernameKey + '="Overviews"]'
+    FolderElements = root.findall(Filter)
+    for FolderElement in FolderElements:
+
+        iid = XMLAttribValue(FolderElement,iidKey)
+        Filter2 = './/REPORT30[@' + parentidKey + '="' + iid + '"]'
+        ReportElements = root.findall(Filter2)
+        for ReportElement in ReportElements:
+            repName = XMLAttribValue(ReportElement, RepnameKey)
+            repiid = XMLAttribValue(ReportElement, iidKey)
+
+            # some reports have the same name.  Add the ID to ensure uniqueness
+            repName = repName + '_' + repiid
+            repName = repName.replace("/", "_")
+
+            if repName != '' and 'OLD' not in repName:
+                print(repName)
+                LogElements = ReportElement.findall('.//PROPERTY[@' + valuerepitemKey + ']')
+                for LogElement in LogElements:
+                    TagName = XMLAttribValue(LogElement,valuerepitemKey)
+                    KMTag = KMTagLookup(KMTagList,TagName)
+
+
+def Trends(Report, KMTagList):
+    global ErrorTagsNotinLog
+    repName = XMLAttribValue(Report, RepnameKey)
+    repiid = XMLAttribValue(Report, iidKey)
+
+    #some reports have the same name.  Add the ID to ensure uniqueness
+    repName = repName + '_' + repiid
+    repName = repName.replace("/", "_")
+
+
+    if repName != '' and 'OLD' not in repName:
+        filter = './/ELEMENTS[@' + keyKey + '= "ROWS"]'
+        rowsElement = Report.find(filter)
+        rowDataItems = []
+        print(repName)
+        LogItemPropertyList = Report.findall('.//PROPERTY[@' + valuerepitemKey + ']')
+        for Log in LogItemPropertyList:
+            Tag = Log.attrib[valuerepitemKey]
+            KMTagLookup(KMTagList,Tag)
 
 def ProductionReport(Report, KMTagList):
     global ErrorTagsNotinLog
@@ -378,7 +438,10 @@ def SingleColumn(Report, KMTagList):
         
 #lookup the log tag in the KM lookup table
 def KMTagLookup(KMTagList, Tag):
-        
+
+    if Tag in Check_Tags:
+        global Ref_Count
+        Ref_Count = Ref_Count + 1
     AVEVATag = ''
     for row in KMTagList:
         if row[0] == Tag:
