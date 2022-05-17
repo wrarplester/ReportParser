@@ -3,6 +3,8 @@
 # Press ⌃R to execute it or replace it with your code.
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
 import os
+import pandas  as pd
+
 
 import xml.etree.ElementTree as ET
 import csv
@@ -96,8 +98,11 @@ LogKeys = {
     'manualsignal': TextDB + 'manualsignal'}
 
 
-Check_Tags = []
-Ref_Count = 0
+Accum_Check_Tags = []
+Accum_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
+
+RHR_Check_Tags = []
+RHR_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 
 
 #{'real_person': 'http://people.example.com', 'role': 'http://characters.example.com'}
@@ -126,12 +131,20 @@ def xmlParse():
     SignalsWithoutLogs = csv.writer(CSVFile4)
     mypath = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/KM reports trends XML (1)'
 
-    CheckTagFile = open('/Users/ryanplester/Downloads/Calc Accumulator References - Sheet1.csv')
-    CSVCheckTagFile = csv.DictReader(CheckTagFile)
-    global Check_Tags
-    for val in CSVCheckTagFile:
+    AccumCheckTagFile = open('/Users/ryanplester/Downloads/Calc Accumulator References - Sheet1.csv')
+    CSVAccumCheckTagFile = csv.DictReader(AccumCheckTagFile)
+    global Accum_Check_Tags
+    for val in CSVAccumCheckTagFile:
         TagName = val['nm_ritext']
-        Check_Tags.append(TagName)
+        Accum_Check_Tags.append(TagName)
+
+    RHRCheckTagFile = open('/Users/ryanplester/Downloads/Calc References - RHRs.csv')
+    CSVRHRCheckTagFile = csv.DictReader(RHRCheckTagFile)
+    global RHR_Check_Tags
+    for val in CSVRHRCheckTagFile:
+        TagName = val['nm_ritext']
+        RHR_Check_Tags.append(TagName)
+        print(TagName)
 
 
 
@@ -149,7 +162,10 @@ def xmlParse():
     CSVFile3.close()
     CSVFile4.close()
 
-    print(Ref_Count)
+    #csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/@Accum_References.csv", 'w', encoding='UTF8')
+    #myWriter = csv.writer(csvFile)
+    Accum_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@Accum_References.csv")
+    RHR_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@RHR_References.csv")
 
 
 
@@ -160,7 +176,7 @@ def ProcessFile(path):
         KMLookupCSV = open("/Users/ryanplester/Downloads/KM Lookup - Sheet3.csv")
         KMLookupReader = csv.reader(KMLookupCSV)
         data = list(KMLookupReader)
-        KMLookupCSV.close()        
+        KMLookupCSV.close()
         getFlowSheets(root_node,data)
 
         for tag in root_node.findall('.//REPORT30'):
@@ -206,11 +222,20 @@ def getFlowSheets (root,KMTagList):
             repName = repName.replace("/", "_")
 
             if repName != '' and 'OLD' not in repName:
+                #pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
+                rowDataItems = pd.DataFrame(columns=['KM Tag', 'AVEVA Tag'])
                 print(repName)
                 LogElements = ReportElement.findall('.//PROPERTY[@' + valuerepitemKey + ']')
                 for LogElement in LogElements:
+
                     TagName = XMLAttribValue(LogElement,valuerepitemKey)
-                    KMTag = KMTagLookup(KMTagList,TagName)
+                    AVEVATag = KMTagLookup(KMTagList,TagName)
+                    if AVEVATag == '':
+                        LogTagErrors(repName,TagName)
+                    CalcTagReferences(TagName, repName, 'Flow Sheet')
+                    #{'Report Name': ReportName, 'Tag': Tag, 'Report Type': Type},ignore_index = True
+                    rowDataItems = rowDataItems.append({'KM Tag': TagName,'AVEVA Tag': AVEVATag}, ignore_index = True)
+                rowDataItems.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv")
 
 
 def Trends(Report, KMTagList):
@@ -232,6 +257,7 @@ def Trends(Report, KMTagList):
         for Log in LogItemPropertyList:
             Tag = Log.attrib[valuerepitemKey]
             KMTagLookup(KMTagList,Tag)
+            CalcTagReferences(Tag,repName,'Trend')
 
 def ProductionReport(Report, KMTagList):
     global ErrorTagsNotinLog
@@ -267,6 +293,7 @@ def ProductionReport(Report, KMTagList):
                     #print(LogElement)
                     LogName = XMLAttribValue(LogElement, valuerepitemKey)
                     AVEVATag = KMTagLookup(KMTagList,LogName)
+                    CalcTagReferences(LogName, repName, 'Production Report')
                     if AVEVATag == '':
                         LogTagErrors(repName, LogName)
                         rowData.append(AVEVATag)
@@ -290,7 +317,7 @@ def ManualEntriesbyEvent(Report, KMTagList):
     global ErrorTagsNotinLog
     repName = XMLAttribValue(Report,RepnameKey)
     repiid = XMLAttribValue(Report,iidKey)
-    
+
     #some reports have the same name.  Add the ID to ensure uniqueness
     repName = repName + '_' + repiid
 
@@ -308,16 +335,16 @@ def ManualEntriesbyEvent(Report, KMTagList):
             SignalItemPropertyList = Report.findall('.//PROPERTY[@' + value_signalitem_signameKey + ']')
 
             for Property in SignalItemPropertyList:
-                
+
                 SignalName = Property.attrib[value_signalitem_signameKey]
-                
+
                 #get the parent so we can find the label that is also under this parent
                 Filter = './/PROPERTY[@' + value_signalitem_signameKey + '= "' + SignalName + '"]...'
                 Parent = Report.find(Filter)
                 inputFilter = './/PROPERTY[@' + keyKey + '="InputName"]'
                 InputProp = Parent.find(inputFilter)
                 InputName = XMLAttribValue(InputProp,valueKey)
-                
+
                 #find the log tag that is associated with our signal name
                 LogTag = LogTagFromSignalTag(KMTagList, SignalName)
                 #lookup the AVEVA tag from the log tag
@@ -327,17 +354,17 @@ def ManualEntriesbyEvent(Report, KMTagList):
                 if AVEVATag == '':
                     #look for the signal name in the signal XML
                     signalElement = SignalXMLLookup(SignalName)
-                    
+
                     #WTF that signal doesn't exist
                     if signalElement is None:
                         global Nosignals
                         Nosignals.writerow([repName, SignalName])
-                    
+
                     #We have a signal but can't find a log
                     elif LogTag is None:
                         global ErrorTagsNotinLog
                         ErrorTagsNotinLog.writerow([repName,'Signal - ' + SignalName])
-                    #Signal exists, log exists but its not in our lookup table    
+                    #Signal exists, log exists but its not in our lookup table
                     else:
                         Row = [repName]
                         Values = LogTag.attrib.values()
@@ -345,7 +372,7 @@ def ManualEntriesbyEvent(Report, KMTagList):
                         Row.append(XMLAttribValue(LogTag, LogKeys['description']))
                         Row.append(XMLAttribValue(LogTag, LogKeys['valuesignal']))
                         ErrorTagsInLog.writerow(Row)
-                
+
                 #append info to the arrays for writing to the CSV files
                 AVEVATags.append(AVEVATag)
                 SignalNames.append(SignalName)
@@ -353,7 +380,7 @@ def ManualEntriesbyEvent(Report, KMTagList):
 
         except Exception as ex:
             print('Error {0}'.format(str(ex)))
-            
+
     #write the info to CSC
 
         if len(AVEVATags) > 1 or len(InputNames) > 1 or len(SignalNames) > 1:
@@ -403,20 +430,21 @@ def SingleColumn(Report, KMTagList):
                 Filter = './/PROPERTY[@' + valuerepitemKey + '= "' + Tag + '"]...'
                 Parent = Report.find(Filter)
                 #Filter2 ='.//PROPERTY[@' + keyKey+'="HTMLText 1"]'
-                
+
                 #each column has the possibility of 3 headers.  Go get them
                 HTMLText1 = HeaderLookup(Parent,'HTMLText 1')
                 HTMLText2 = HeaderLookup(Parent, 'HTMLText 2')
                 HTMLText3 = HeaderLookup(Parent, 'HTMLText 3')
-                
+
                 #lookup the aveva tag
                 AVEVATag = KMTagLookup(KMTagList,Tag)
                 AVEVATags.append(AVEVATag)
-                
+                CalcTagReferences(Tag, repName, 'Single Column')
+
                 #holy crap, can't find an aveva tag
                 if AVEVATag == '':
                     LogTagErrors(repName,Tag)
-                    
+
                 #append the headers to their arrays to go in the CSV
                 Header1.append(HTMLText1)
                 Header2.append(HTMLText2)
@@ -435,13 +463,22 @@ def SingleColumn(Report, KMTagList):
             myWriter.writerow(Header2)
             myWriter.writerow(Header3)
             csvFile.close()
-        
+
+
+def CalcTagReferences (Tag, ReportName, Type):
+    if Tag in Accum_Check_Tags:
+        global Accum_Refs
+
+        Accum_Refs = Accum_Refs.append({'Report Name': ReportName, 'Tag': Tag, 'Report Type': Type},ignore_index = True)
+
+    if Tag in RHR_Check_Tags:
+        global RHR_Refs
+        RHR_Refs = RHR_Refs.append({'Report Name': ReportName, 'Tag': Tag, 'Report Type': Type},ignore_index = True)
+
 #lookup the log tag in the KM lookup table
 def KMTagLookup(KMTagList, Tag):
 
-    if Tag in Check_Tags:
-        global Ref_Count
-        Ref_Count = Ref_Count + 1
+
     AVEVATag = ''
     for row in KMTagList:
         if row[0] == Tag:
