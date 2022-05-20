@@ -184,16 +184,12 @@ def ProcessFile(path):
             folderName = XMLAttribValue(reportFolder, foldernameKey)
             if 'Old' not in folderName:
                 templateName = XMLAttribValue(tag, templateKey)
-                #One Tag per column
-                if templateName == 'Operation Rep 2 Pages' or templateName == 'Operation Rep 2 Pages' \
-                        or templateName == "Operation Rep 2 Pages" or templateName == "Production Report Leach" \
-                        or templateName == "Production Report Leach" or templateName == "Operation Rep 3 Page" \
-                        or templateName == "Production Report Maint Rev1":
-                    SingleColumn(tag, data)
+
+
                     #print('singleColumn')
                     #Text = 'singleColumn'
                 #manual entries
-                elif templateName == "Manual Entries by Events" or templateName == "Targets Manual Entries Per":
+                if templateName == "Manual Entries by Events" or templateName == "Targets Manual Entries Per":
                     ManualEntriesbyEvent(tag,data)
                     #Text = 'singleColumn'
                     #print('manual')
@@ -201,6 +197,9 @@ def ProcessFile(path):
                     ProductionReport(tag, data)
                 elif 'Trend' in templateName:
                     Trends(tag,data)
+                # One Tag per column
+                else:
+                    SingleColumn(tag, data)
         pass
     except Exception as ex:
         print('Error with {0} - {1}'.format(path, ex))
