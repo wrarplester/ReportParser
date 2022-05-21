@@ -29,6 +29,8 @@ value_signalitem_signameKey = '{http://bmi.ch.abb.com/kbs/rr}value_signalitem_si
 signameKey = '{http://bmi.ch.abb.com/kbs/nm}signame'
 parentidKey = '{http://bmi.ch.abb.com/kbs/ci}parentid'
 foldernameKey = TextNM + 'foldername'
+channameKey = TextRR + 'channr_signalchannel_channame'
+valuesignal_signalitem_signameKey = '{http://bmi.ch.abb.com/kbs/rr}valuesignal_signalitem_signame'
 
 valueKey = '{http://bmi.ch.abb.com/kbs/pv}value'
 
@@ -104,6 +106,8 @@ Accum_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 RHR_Check_Tags = []
 RHR_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 
+CHAN_9_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
+
 
 #{'real_person': 'http://people.example.com', 'role': 'http://characters.example.com'}
 
@@ -166,6 +170,7 @@ def xmlParse():
     #myWriter = csv.writer(csvFile)
     Accum_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@Accum_References.csv")
     RHR_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@RHR_References.csv")
+    CHAN_9_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@CHAN9_References.csv")
 
 
 
@@ -232,6 +237,7 @@ def getFlowSheets (root,KMTagList):
                     if AVEVATag == '':
                         LogTagErrors(repName,TagName)
                     CalcTagReferences(TagName, repName, 'Flow Sheet')
+                    CHAN9References(TagName, repName, 'Flow Sheet')
                     #{'Report Name': ReportName, 'Tag': Tag, 'Report Type': Type},ignore_index = True
                     rowDataItems = rowDataItems.append({'KM Tag': TagName,'AVEVA Tag': AVEVATag}, ignore_index = True)
                 rowDataItems.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv")
@@ -257,6 +263,7 @@ def Trends(Report, KMTagList):
             Tag = Log.attrib[valuerepitemKey]
             KMTagLookup(KMTagList,Tag)
             CalcTagReferences(Tag,repName,'Trend')
+            CHAN9References(Tag, repName, 'Trend')
 
 def ProductionReport(Report, KMTagList):
     global ErrorTagsNotinLog
@@ -293,6 +300,7 @@ def ProductionReport(Report, KMTagList):
                     LogName = XMLAttribValue(LogElement, valuerepitemKey)
                     AVEVATag = KMTagLookup(KMTagList,LogName)
                     CalcTagReferences(LogName, repName, 'Production Report')
+                    CHAN9References(LogName, repName, 'Production Report')
                     if AVEVATag == '':
                         LogTagErrors(repName, LogName)
                         rowData.append(AVEVATag)
@@ -439,6 +447,7 @@ def SingleColumn(Report, KMTagList):
                 AVEVATag = KMTagLookup(KMTagList,Tag)
                 AVEVATags.append(AVEVATag)
                 CalcTagReferences(Tag, repName, 'Single Column')
+                CHAN9References(Tag,repName, 'Single Column')
 
                 #holy crap, can't find an aveva tag
                 if AVEVATag == '':
@@ -463,6 +472,17 @@ def SingleColumn(Report, KMTagList):
             myWriter.writerow(Header3)
             csvFile.close()
 
+def CHAN9References(LogTagName,ReportName, Type):
+
+    InitSignalXML()
+    InitXML()
+    LogTagElement = LogXMLLookup(LogTagName)
+    SignalName = XMLAttribValue(LogTagElement,valuesignal_signalitem_signameKey)
+    SignalElement = SignalXMLLookup(SignalName)
+    channelName = XMLAttribValue(SignalElement, channameKey)
+    if channelName == 'CHAN_9':
+        global CHAN_9_Refs
+        CHAN_9_Refs = CHAN_9_Refs.append({'Report Name': ReportName, 'Tag': LogTagName, 'Report Type': Type}, ignore_index=True)
 
 def CalcTagReferences (Tag, ReportName, Type):
     if Tag in Accum_Check_Tags:
@@ -498,9 +518,11 @@ def LogTagFromSignalTag(KMTagList, SignalTag):
 
 #loads the log tag xml file
 def InitXML():
-    path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/2022-03-18 XML export/Logs.xml'
     global LogXML
-    LogXML = ET.parse(path).getroot()
+    if LogXML is None:
+        path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/2022-03-18 XML export/Logs.xml'
+
+        LogXML = ET.parse(path).getroot()
 
 #returns the xml element from log tags xml for a given tag name
 def LogXMLLookup(Tag):
@@ -514,9 +536,11 @@ def LogXMLLookup(Tag):
 
 #loads the signal tag xml
 def InitSignalXML():
-    path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/2022-03-18 XML export/Signals.xml'
     global SignalXML
-    SignalXML = ET.parse(path).getroot()
+    if SignalXML is None:
+        path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/2022-03-18 XML export/Signals.xml'
+
+        SignalXML = ET.parse(path).getroot()
 
 #returns the signal tag element given a tag name
 def SignalXMLLookup(Tag):
