@@ -108,6 +108,10 @@ RHR_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 
 CHAN_9_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 
+CALC_CHAN_9_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
+CALC_CTR_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
+CTR_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
+
 
 #{'real_person': 'http://people.example.com', 'role': 'http://characters.example.com'}
 
@@ -150,7 +154,7 @@ def xmlParse():
         RHR_Check_Tags.append(TagName)
         print(TagName)
 
-
+    Manual_Tags()
 
     #iterate through the xml files in the path
     for path, subdirs, files in os.walk(mypath):
@@ -159,6 +163,7 @@ def xmlParse():
                 fullPath = os.path.join(path, name)
                 print (fullPath)
                 ProcessFile(fullPath)
+
 
     #close the error files
     CSVFile1.close()
@@ -171,8 +176,16 @@ def xmlParse():
     Accum_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@Accum_References.csv")
     RHR_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@RHR_References.csv")
     CHAN_9_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@CHAN9_References.csv")
+    CALC_CHAN_9_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@CALC_CHAN9_References.csv")
+    CALC_CTR_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@CALC_CTR_References.csv")
+    CTR_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@CTR_References.csv")
+    CTR_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@CTR_References_2.csv",';')
 
-
+def Manual_Tags():
+    InitSignalXML()
+    filter = './/SIGNALITEM[@' + channameKey + '= "CHAN_9"]'
+    ManualSignalElements = SignalXML.findall(filter)
+    print(ManualSignalElements)
 
 def ProcessFile(path):
     try:
@@ -187,7 +200,7 @@ def ProcessFile(path):
         for tag in root_node.findall('.//REPORT30'):
             reportFolder = FindReportFolder(tag, root_node)
             folderName = XMLAttribValue(reportFolder, foldernameKey)
-            if 'Old' not in folderName:
+            if 'old' not in folderName.lower():
                 templateName = XMLAttribValue(tag, templateKey)
 
 
@@ -225,7 +238,7 @@ def getFlowSheets (root,KMTagList):
             repName = repName + '_' + repiid
             repName = repName.replace("/", "_")
 
-            if repName != '' and 'OLD' not in repName:
+            if repName != '' and 'OLD' not in repName.upper():
                 #pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
                 rowDataItems = pd.DataFrame(columns=['KM Tag', 'AVEVA Tag'])
                 print(repName)
@@ -253,7 +266,7 @@ def Trends(Report, KMTagList):
     repName = repName.replace("/", "_")
 
 
-    if repName != '' and 'OLD' not in repName:
+    if repName != '' and 'OLD' not in repName.upper():
         filter = './/ELEMENTS[@' + keyKey + '= "ROWS"]'
         rowsElement = Report.find(filter)
         rowDataItems = []
@@ -275,7 +288,7 @@ def ProductionReport(Report, KMTagList):
     repName = repName.replace("/", "_")
 
 
-    if repName != '' and 'OLD' not in repName:
+    if repName != '' and 'OLD' not in repName.upper():
 
         rowDataItems = []
         print(repName)
@@ -329,7 +342,7 @@ def ManualEntriesbyEvent(Report, KMTagList):
     repName = repName + '_' + repiid
 
     #check for no name in the report or the word 'OLD'.  Ignore these
-    if repName != '' and 'OLD' not in repName:
+    if repName != '' and 'OLD' not in repName.upper():
         rowDataItems = []
         AVEVATags = ['AVEVA Tag']
         SignalNames = ['Signal Name']
@@ -388,7 +401,7 @@ def ManualEntriesbyEvent(Report, KMTagList):
         except Exception as ex:
             print('Error {0}'.format(str(ex)))
 
-    #write the info to CSC
+    #write the info to CSV
 
         if len(AVEVATags) > 1 or len(InputNames) > 1 or len(SignalNames) > 1:
 
@@ -407,7 +420,7 @@ def SingleColumn(Report, KMTagList):
     repName = repName + '_' + repiid
 
     # check for no name in the report or the word 'OLD'.  Ignore these
-    if repName != '' and 'OLD' not in repName:
+    if repName != '' and 'OLD' not in repName.upper():
         print(repName)
         repName = repName.replace("/","_")
 
@@ -446,6 +459,8 @@ def SingleColumn(Report, KMTagList):
                 #lookup the aveva tag
                 AVEVATag = KMTagLookup(KMTagList,Tag)
                 AVEVATags.append(AVEVATag)
+
+                #check to see if the tag is a calc tag or if it references a chanel 9 tag (manual entry)
                 CalcTagReferences(Tag, repName, 'Single Column')
                 CHAN9References(Tag,repName, 'Single Column')
 
@@ -472,19 +487,33 @@ def SingleColumn(Report, KMTagList):
             myWriter.writerow(Header3)
             csvFile.close()
 
-def CHAN9References(LogTagName,ReportName, Type):
+#returns the signal tag channel from a log tag name
+def SignalChannelFromLog(LogTagName):
+    channelName = ''
+    SignalElement = SignalElementFromLogTagName(LogTagName)
+    channelName = XMLAttribValue(SignalElement, channameKey)
 
+    return channelName
+
+def SignalElementFromLogTagName(LogTagName):
     InitSignalXML()
     InitXML()
     LogTagElement = LogXMLLookup(LogTagName)
-    SignalName = XMLAttribValue(LogTagElement,valuesignal_signalitem_signameKey)
+    SignalName = XMLAttribValue(LogTagElement, valuesignal_signalitem_signameKey)
     SignalElement = SignalXMLLookup(SignalName)
-    channelName = XMLAttribValue(SignalElement, channameKey)
+    return SignalElement
+
+def CHAN9References(LogTagName,ReportName, Type):
+    channelName = SignalChannelFromLog(LogTagName)
+
     if channelName == 'CHAN_9':
         global CHAN_9_Refs
         CHAN_9_Refs = CHAN_9_Refs.append({'Report Name': ReportName, 'Tag': LogTagName, 'Report Type': Type}, ignore_index=True)
 
 def CalcTagReferences (Tag, ReportName, Type):
+    InitSignalXML()
+    InitXML()
+
     if Tag in Accum_Check_Tags:
         global Accum_Refs
 
@@ -493,6 +522,34 @@ def CalcTagReferences (Tag, ReportName, Type):
     if Tag in RHR_Check_Tags:
         global RHR_Refs
         RHR_Refs = RHR_Refs.append({'Report Name': ReportName, 'Tag': Tag, 'Report Type': Type},ignore_index = True)
+
+    LogTagElement = LogXMLLookup(Tag)
+    LogClass = XMLAttribValue(LogTagElement, LogKeys['riclass'])
+    if LogClass == 'CTR':
+        global CTR_Refs
+        CTR_Refs = CTR_Refs.append({'Report Name': ReportName, 'Tag': Tag, 'Report Type': Type},ignore_index = True)
+    for i in range(97,110):
+        LogKey = LogKeys['ricode' + chr(i) + '_repitem_ritext']
+        ReferncedLogName = XMLAttribValue(LogTagElement,LogKey)
+        if ReferncedLogName != '':
+            channelName = SignalChannelFromLog(ReferncedLogName)
+            if channelName == 'CHAN_9':
+                global CALC_CHAN_9_Refs
+
+                tempdf = pd.DataFrame(columns=['Report Name', 'Tag', 'Report Type'])
+                tempdf = CALC_CHAN_9_Refs[(CALC_CHAN_9_Refs['Report Name'] == ReportName) & (CALC_CHAN_9_Refs['Tag'] == Tag)]
+                if tempdf.shape[0] == 0:
+                    CALC_CHAN_9_Refs = CALC_CHAN_9_Refs.append({'Report Name': ReportName, 'Tag': Tag, 'Report Type': Type},ignore_index = True)
+            ReferencedElement = LogXMLLookup(ReferncedLogName)
+            myClass = XMLAttribValue(ReferencedElement, LogKeys['riclass'])
+            if myClass == 'CTR':
+                global CALC_CTR_Refs
+                tempdf = CALC_CTR_Refs[(CALC_CTR_Refs['Report Name'] == ReportName) & (CALC_CTR_Refs['Tag'] == Tag)]
+                if tempdf.shape[0] == 0:
+                    CALC_CTR_Refs = CALC_CTR_Refs.append({'Report Name': ReportName, 'Tag': Tag, 'Report Type': Type},ignore_index = True)
+
+
+
 
 #lookup the log tag in the KM lookup table
 def KMTagLookup(KMTagList, Tag):
