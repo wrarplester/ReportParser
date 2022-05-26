@@ -192,6 +192,7 @@ def Manual_Tags():
     ManualSignalElements = SignalXML.findall(filter)
     ManualTagList = pd.DataFrame(columns=['Name', 'Type', 'Min','Max', 'Description'])
     AVEVATagList = pd.DataFrame(columns=[':(AnalogTag)TagName','Description','EngUnits'])
+    AVEVAUnits = pd.DataFrame(columns=[':(EngineeringUnit)Unit'])
     for SignalElement in ManualSignalElements:
         SignalTagName = XMLAttribValue(SignalElement,signameKey)
         LogElement = LogTagFromSignalTag(SignalTagName)
@@ -205,7 +206,20 @@ def Manual_Tags():
 
             ManualTagList = ManualTagList.append({'Name': AVEVATagName, 'Type': 'Analog','Min': 0, 'Max': 10000000, 'Description': LogTagName}, ignore_index=True)
             AVEVATagList = AVEVATagList.append({':(AnalogTag)TagName': AVEVATagName, 'Description': LogTagName, 'EngUnits': SignalUnits}, ignore_index=True)
-    ManualTagList.to_csv(ProcessingFolder + "#manual Tags DreamReport.csv",';', index=False)
+
+            tempdf = pd.DataFrame(columns=[':(EngineeringUnit)Unit'])
+            tempdf = AVEVAUnits[(AVEVAUnits[':(EngineeringUnit)Unit'] == SignalUnits)]
+            if tempdf.shape[0] == 0:
+                AVEVAUnits = AVEVAUnits.append({':(EngineeringUnit)Unit': SignalUnits}, ignore_index=True)
+    AVEVAUnits.insert(1,'DefaultTagRate', 10000)
+    AVEVAUnits.insert(2,'IntegralDivisor','')
+    AVEVAUnits.insert(3,'BasicSymbol', '?')
+    AVEVAUnits.insert(4, 'Dimension', 'Unknown')
+    AVEVAUnits.insert(5, 'System', 'General')
+    AVEVAUnits.to_csv(ProcessingFolder + "@@manual Tags AVEVA Units.txt",sep='\t',line_terminator='\r\n', index=False)
+
+
+    ManualTagList.to_csv(ProcessingFolder + "@@manual Tags DreamReport.csv",';', index=False)
 
     AVEVATagList.insert(2,'IOServerComputerName','$local')
     AVEVATagList.insert(3, 'IOServerAppName', 'InSQL_MDAS')
@@ -244,7 +258,7 @@ def Manual_Tags():
     AVEVATagList.insert(37, 'ShardId', '{00000000-0000-0000-0000-000000000000}')
 
 
-    AVEVATagList.to_csv(ProcessingFolder + "#manual Tags AVEVA.txt",sep='\t',line_terminator='\r\n', index=False)
+    AVEVATagList.to_csv(ProcessingFolder + "@@manual Tags AVEVA.txt",sep='\t',line_terminator='\r\n', index=False)
 
 def ProcessFile(path):
     try:
