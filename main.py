@@ -9,6 +9,7 @@ import pandas  as pd
 import xml.etree.ElementTree as ET
 import csv
 import glob
+import re
 TextPrefix = '{http://bmi.ch.abb.com/kbs/'
 TextCI = TextPrefix + 'ci}'
 TextNM = TextPrefix + 'nm}'
@@ -99,6 +100,8 @@ LogKeys = {
     'outflowsignal': TextDB + 'outflowsignal',
     'manualsignal': TextDB + 'manualsignal'}
 
+objunitKey = TextDB + 'objunit'
+
 
 Accum_Check_Tags = []
 Accum_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
@@ -112,6 +115,8 @@ CALC_CHAN_9_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 CALC_CTR_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 CTR_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 
+ProcessingFolder = "/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/Report Processing/Sherritt CSV/"
+
 
 #{'real_person': 'http://people.example.com', 'role': 'http://characters.example.com'}
 
@@ -119,22 +124,22 @@ CTR_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 #main parsing function
 def xmlParse():
     # Use a breakpoint in the code line below to debug your script.
-    files = glob.glob('/Users/ryanplester/Downloads/Sherritt_CSV/*')
+    files = glob.glob(ProcessingFolder + '*')
     for f in files:
         os.remove(f)
 
     #init the csv files.  Global because the various report types can all write to them
-    CSVFile1  = open("/Users/ryanplester/Downloads/Sherritt_CSV/@No KM Lookup In Logs.csv", 'w', encoding='UTF8')
+    CSVFile1  = open(ProcessingFolder + "@No KM Lookup In Logs.csv", 'w', encoding='UTF8')
     global ErrorTagsInLog
     ErrorTagsInLog = csv.writer(CSVFile1)
     ErrorTagsInLog.writerow(['Report Name','RItext', 'Description', 'Signal'])
-    CSVFile2 = open("/Users/ryanplester/Downloads/Sherritt_CSV/@No KM Lookup No Logs.csv", 'w', encoding='UTF8')
+    CSVFile2 = open(ProcessingFolder + "@No KM Lookup No Logs.csv", 'w', encoding='UTF8')
     global ErrorTagsNotinLog
     ErrorTagsNotinLog = csv.writer(CSVFile2)
-    CSVFile3 = open("/Users/ryanplester/Downloads/Sherritt_CSV/@No Signal.csv", 'w', encoding='UTF8')
+    CSVFile3 = open(ProcessingFolder + "@No Signal.csv", 'w', encoding='UTF8')
     global Nosignals
     NoSignals = csv.writer(CSVFile3)
-    CSVFile4 = open("/Users/ryanplester/Downloads/Sherritt_CSV/@Signals Without Logs.csv", 'w', encoding='UTF8')
+    CSVFile4 = open(ProcessingFolder + "@Signals Without Logs.csv", 'w', encoding='UTF8')
     global SignalsWithoutLogs
     SignalsWithoutLogs = csv.writer(CSVFile4)
     mypath = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/KM reports trends XML (1)'
@@ -171,21 +176,75 @@ def xmlParse():
     CSVFile3.close()
     CSVFile4.close()
 
-    #csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/@Accum_References.csv", 'w', encoding='UTF8')
+    #csvFile = open(ProcessingFolder + "@Accum_References.csv", 'w', encoding='UTF8')
     #myWriter = csv.writer(csvFile)
-    Accum_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@Accum_References.csv")
-    RHR_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@RHR_References.csv")
-    CHAN_9_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@CHAN9_References.csv")
-    CALC_CHAN_9_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@CALC_CHAN9_References.csv")
-    CALC_CTR_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@CALC_CTR_References.csv")
-    CTR_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@CTR_References.csv")
-    CTR_Refs.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/@CTR_References_2.csv",';')
+    Accum_Refs.to_csv(ProcessingFolder + "@Accum_References.csv")
+    RHR_Refs.to_csv(ProcessingFolder + "@RHR_References.csv")
+    CHAN_9_Refs.to_csv(ProcessingFolder + "@CHAN9_References.csv")
+    CALC_CHAN_9_Refs.to_csv(ProcessingFolder + "@CALC_CHAN9_References.csv")
+    CALC_CTR_Refs.to_csv(ProcessingFolder + "@CALC_CTR_References.csv")
+    CTR_Refs.to_csv(ProcessingFolder + "@CTR_References.csv")
+
 
 def Manual_Tags():
     InitSignalXML()
     filter = './/SIGNALITEM[@' + channameKey + '= "CHAN_9"]'
     ManualSignalElements = SignalXML.findall(filter)
-    print(ManualSignalElements)
+    ManualTagList = pd.DataFrame(columns=['Name', 'Type', 'Min','Max', 'Description'])
+    AVEVATagList = pd.DataFrame(columns=[':(AnalogTag)TagName','Description','EngUnits'])
+    for SignalElement in ManualSignalElements:
+        SignalTagName = XMLAttribValue(SignalElement,signameKey)
+        LogElement = LogTagFromSignalTag(SignalTagName)
+        if LogElement is not None:
+            LogTagName = XMLAttribValue(LogElement,ritextKey)
+            LogAlias = XMLAttribValue(LogElement,LogKeys['aliasname'])
+            SignalUnits = XMLAttribValue(SignalElement,objunitKey)
+            AVEVATagName = re.sub('\W+', '_', LogAlias)
+            LogClass = XMLAttribValue(LogElement,LogKeys['riclass'])
+            AVEVATagName = AVEVATagName.replace('_' + LogClass, '')
+
+            ManualTagList = ManualTagList.append({'Name': AVEVATagName, 'Type': 'Analog','Min': 0, 'Max': 10000000, 'Description': LogTagName}, ignore_index=True)
+            AVEVATagList = AVEVATagList.append({':(AnalogTag)TagName': AVEVATagName, 'Description': LogTagName, 'EngUnits': SignalUnits}, ignore_index=True)
+    ManualTagList.to_csv(ProcessingFolder + "#manual Tags DreamReport.csv",';', index=False)
+
+    AVEVATagList.insert(2,'IOServerComputerName','$local')
+    AVEVATagList.insert(3, 'IOServerAppName', 'InSQL_MDAS')
+    AVEVATagList.insert(4, 'TopicName', 'MDAS')
+    AVEVATagList.insert(5, 'ItemName', '')
+    AVEVATagList.insert(6, 'AcquisitionType', 'Manual')
+    AVEVATagList.insert(7, 'StorageType', 'Delta')
+    AVEVATagList.insert(8, 'AcquisitionRate', '0')
+    AVEVATagList.insert(9, 'StorageRate', '0')
+    AVEVATagList.insert(10, 'TimeDeadband', '0')
+    AVEVATagList.insert(11, 'SamplesInAI', '0')
+    AVEVATagList.insert(12, 'AIMode', 'All')
+    AVEVATagList.insert(14, 'MinEU', '0')
+    AVEVATagList.insert(15, 'MaxEU', '10000000')
+    AVEVATagList.insert(16, 'MinRaw', '0')
+    AVEVATagList.insert(17, 'MaxRaw', '10000000')
+    AVEVATagList.insert(18, 'Scaling', 'None')
+    AVEVATagList.insert(19, 'RawType', 'MSFloat')
+    AVEVATagList.insert(20, 'IntegerSize', '0')
+    AVEVATagList.insert(21, 'Sign', '')
+    AVEVATagList.insert(22, 'ValueDeadband', '0')
+    AVEVATagList.insert(23, 'InitialValue', '0')
+    AVEVATagList.insert(24, 'CurrentEditor', '0')
+    AVEVATagList.insert(25, 'RateDeadband', '0')
+    AVEVATagList.insert(26, 'InterpolationType', 'System Default')
+    AVEVATagList.insert(27, 'RolloverValue', '0')
+    AVEVATagList.insert(28, 'ServerTimeStamp', 'No')
+    AVEVATagList.insert(29, 'DeadbandType', 'TimeValue')
+    AVEVATagList.insert(30, 'TagId', '')
+    AVEVATagList.insert(31, 'ChannelStatus', '1')
+    AVEVATagList.insert(32, 'AITag', '0')
+    AVEVATagList.insert(33, 'AIHistory', 'FALSE')
+    AVEVATagList.insert(34, 'SourceTag', '')
+    AVEVATagList.insert(35, 'SourceServer', '')
+    AVEVATagList.insert(36, 'SourceTagId', '')
+    AVEVATagList.insert(37, 'ShardId', '{00000000-0000-0000-0000-000000000000}')
+
+
+    AVEVATagList.to_csv(ProcessingFolder + "#manual Tags AVEVA.txt",sep='\t',line_terminator='\r\n', index=False)
 
 def ProcessFile(path):
     try:
@@ -253,7 +312,7 @@ def getFlowSheets (root,KMTagList):
                     CHAN9References(TagName, repName, 'Flow Sheet')
                     #{'Report Name': ReportName, 'Tag': Tag, 'Report Type': Type},ignore_index = True
                     rowDataItems = rowDataItems.append({'KM Tag': TagName,'AVEVA Tag': AVEVATag}, ignore_index = True)
-                rowDataItems.to_csv("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv")
+                rowDataItems.to_csv(ProcessingFolder + "" + repName + ".csv")
 
 
 def Trends(Report, KMTagList):
@@ -327,7 +386,7 @@ def ProductionReport(Report, KMTagList):
                 rowDataItems.append(rowData)
 
         if len(rowDataItems) != 0:
-            csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv", 'w', encoding='UTF8')
+            csvFile = open(ProcessingFolder + "" + repName + ".csv", 'w', encoding='UTF8')
             myWriter = csv.writer(csvFile)
             myWriter.writerows(rowDataItems)
             csvFile.close()
@@ -366,7 +425,7 @@ def ManualEntriesbyEvent(Report, KMTagList):
                 InputName = XMLAttribValue(InputProp,valueKey)
 
                 #find the log tag that is associated with our signal name
-                LogTag = LogTagFromSignalTag(KMTagList, SignalName)
+                LogTag = LogTagFromSignalTag(SignalName)
                 #lookup the AVEVA tag from the log tag
                 AVEVATag = KMTagLookup(KMTagList, XMLAttribValue(LogTag,LogKeys['ritext']))
 
@@ -405,7 +464,7 @@ def ManualEntriesbyEvent(Report, KMTagList):
 
         if len(AVEVATags) > 1 or len(InputNames) > 1 or len(SignalNames) > 1:
 
-            csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv", 'w', encoding='UTF8')
+            csvFile = open(ProcessingFolder + "" + repName + ".csv", 'w', encoding='UTF8')
             myWriter = csv.writer(csvFile)
             myWriter.writerow(InputNames)
             myWriter.writerow(SignalNames)
@@ -478,7 +537,7 @@ def SingleColumn(Report, KMTagList):
 
         #write data to the CSV and close it
         if len(Tags) > 1 or len(AVEVATags) > 1:
-            csvFile = open("/Users/ryanplester/Downloads/Sherritt_CSV/" + repName + ".csv", 'w',encoding='UTF8')
+            csvFile = open(ProcessingFolder + "" + repName + ".csv", 'w',encoding='UTF8')
             myWriter = csv.writer(csvFile)
             myWriter.writerow(Tags)
             myWriter.writerow(AVEVATags)
@@ -564,7 +623,7 @@ def KMTagLookup(KMTagList, Tag):
     return AVEVATag
 
 #finds the log tag which references a given signal tag
-def LogTagFromSignalTag(KMTagList, SignalTag):
+def LogTagFromSignalTag(SignalTag):
 
     AVEVATag = ''
     if LogXML is None:
