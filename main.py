@@ -347,7 +347,12 @@ def Trends(Report, KMTagList):
         LogItemPropertyList = Report.findall('.//PROPERTY[@' + valuerepitemKey + ']')
         for Log in LogItemPropertyList:
             Tag = Log.attrib[valuerepitemKey]
+            if "'" in Tag:
+                print("Single Quote")
             KMTagLookup(KMTagList,Tag)
+            AVEVATag = KMTagLookup(KMTagList, Tag)
+            if AVEVATag == '':
+                LogTagErrors(repName, Tag)
             CalcTagReferences(Tag,repName,'Trend')
             CHAN9References(Tag, repName, 'Trend')
 
@@ -627,10 +632,11 @@ def CalcTagReferences (Tag, ReportName, Type):
 #lookup the log tag in the KM lookup table
 def KMTagLookup(KMTagList, Tag):
 
-
+    CompareTag = Tag.replace("'","")
     AVEVATag = ''
     for row in KMTagList:
-        if row[0] == Tag:
+        ListTag = row[0].replace("'","")
+        if ListTag == CompareTag:
             #print(row)
 
             AVEVATag = row[2]
