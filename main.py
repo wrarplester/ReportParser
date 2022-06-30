@@ -114,6 +114,7 @@ CHAN_9_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 CALC_CHAN_9_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 CALC_CTR_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
 CTR_Refs = pd.DataFrame(columns = ['Report Name', 'Tag', 'Report Type'])
+ReportList = pd.DataFrame(columns=['Report Name', 'Type','Folder'])
 
 ProcessingFolder = "/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/Report Processing/Sherritt CSV/"
 
@@ -169,7 +170,7 @@ def xmlParse():
                 print (fullPath)
                 ProcessFile(fullPath)
 
-
+    ReportList.to_csv((ProcessingFolder + "@@Report List.csv"))
     #close the error files
     CSVFile1.close()
     CSVFile2.close()
@@ -273,28 +274,45 @@ def ProcessFile(path):
         for tag in root_node.findall('.//REPORT30'):
             reportFolder = FindReportFolder(tag, root_node)
             folderName = XMLAttribValue(reportFolder, foldernameKey)
+            folderPath = FolderPathFromReportXMLNode(tag, root_node)
+            repName = XMLAttribValue(tag, RepnameKey)
+            repiid = XMLAttribValue(tag, iidKey)
+            reportType = ''
+
+            # some reports have the same name.  Add the ID to ensure uniqueness
+            repName = repName + '_' + repiid
+            repName = repName.replace("/", "_")
             if 'old' not in folderName.lower():
                 templateName = XMLAttribValue(tag, templateKey)
-
-
                     #print('singleColumn')
                     #Text = 'singleColumn'
                 #manual entries
                 if templateName == "Manual Entries by Events" or templateName == "Targets Manual Entries Per":
                     ManualEntriesbyEvent(tag,data)
+                    reportType = 'Manual'
                     #Text = 'singleColumn'
                     #print('manual')
                 elif templateName == "Production Report":
                     ProductionReport(tag, data)
+                    reportType = 'ProdReport'
                 elif 'Trend' in templateName:
                     Trends(tag,data)
+                    reportType = 'trend'
                 # One Tag per column
                 else:
                     SingleColumn(tag, data)
+                    reportType = 'Single Column'
+                global ReportList
+                ReportList = ReportList.append({'Report Name': repName, 'Type': reportType, 'Folder': folderPath}, ignore_index=True)
+
+
         pass
+
     except Exception as ex:
         print('Error with {0} - {1}'.format(path, ex))
         pass
+
+
 def getFlowSheets (root,KMTagList):
     Filter = './/FOLDERITEM[@' + foldernameKey + '="Overviews"]'
     FolderElements = root.findall(Filter)
@@ -425,8 +443,10 @@ def ManualEntriesbyEvent(Report, KMTagList):
         AVEVATags = ['AVEVA Tag']
         SignalNames = ['Signal Name']
         InputNames = ['Input Names']
+        ChannelNames = ['Channel Names']
         print(repName)
         repName = repName.replace("/","_")
+
 
         try:
             #find all the lines that reference signals
@@ -445,8 +465,11 @@ def ManualEntriesbyEvent(Report, KMTagList):
 
                 #find the log tag that is associated with our signal name
                 LogTag = LogTagFromSignalTag(SignalName)
+
                 #lookup the AVEVA tag from the log tag
                 AVEVATag = KMTagLookup(KMTagList, XMLAttribValue(LogTag,LogKeys['ritext']))
+
+
 
                 #OMG no AVEVA tag
                 if AVEVATag == '':
@@ -489,6 +512,19 @@ def ManualEntriesbyEvent(Report, KMTagList):
             myWriter.writerow(SignalNames)
             myWriter.writerow(AVEVATags)
             csvFile.close()
+def FolderPathFromReportXMLNode(reportNode, rootNode):
+    folderNode = FindReportFolder(reportNode, rootNode)
+    parentID = 0
+    folderPath = ''
+    #work up the folder heirarchy
+    while (parentID != '1'):
+        foldername = XMLAttribValue(folderNode, foldernameKey)
+        folderPath = foldername + '/' + folderPath
+        parentID = XMLAttribValue(folderNode, parentidKey)
+        Filter = './/FOLDERITEM[@' + iidKey + '="' + parentID + '"]'
+        folderNode = rootNode.find(Filter)
+    return folderPath
+
 
 def SingleColumn(Report, KMTagList):
     global ErrorTagsNotinLog
@@ -564,6 +600,12 @@ def SingleColumn(Report, KMTagList):
             myWriter.writerow(Header2)
             myWriter.writerow(Header3)
             csvFile.close()
+
+def ChannelNamefromSignalName(SignalName):
+    channelName = ''
+    SignalElement = SignalXMLLookup(SignalName)
+    channelName = XMLAttribValue(SignalElement, channameKey)
+    return channelName;
 
 #returns the signal tag channel from a log tag name
 def SignalChannelFromLog(LogTagName):
@@ -656,7 +698,7 @@ def LogTagFromSignalTag(SignalTag):
 def InitXML():
     global LogXML
     if LogXML is None:
-        path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/2022-03-18 XML export/Logs.xml'
+        path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/XML export/Logs 2022-03-18.xml'
 
         LogXML = ET.parse(path).getroot()
 
@@ -674,7 +716,7 @@ def LogXMLLookup(Tag):
 def InitSignalXML():
     global SignalXML
     if SignalXML is None:
-        path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/2022-03-18 XML export/Signals.xml'
+        path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/XML export/Signals 2022-03-18.xml'
 
         SignalXML = ET.parse(path).getroot()
 
@@ -731,7 +773,7 @@ def LogTagErrors(repName, logTagName):
         Row.append(XMLAttribValue(LogTag, LogKeys['valuesignal']))
         ErrorTagsInLog.writerow(Row)
 
-
+#returns folder xml node
 def FindReportFolder(reportElement, rootElement):
     parentid = XMLAttribValue(reportElement, parentidKey)
     Filter = './/FOLDERITEM[@' + iidKey + '="' + parentid + '"]'
