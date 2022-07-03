@@ -410,6 +410,8 @@ def ProductionReport(Report, KMTagList):
                     AVEVATag = KMTagLookup(KMTagList,LogName)
                     CalcTagReferences(LogName, repName, 'Production Report')
                     CHAN9References(LogName, repName, 'Production Report')
+
+                    channelName = SignalChannelFromLog(LogName)
                     if AVEVATag == '':
                         LogTagErrors(repName, LogName)
                         rowData.append(AVEVATag)
@@ -540,6 +542,7 @@ def SingleColumn(Report, KMTagList):
 
         Tags = ['KM Tag']
         AVEVATags = ['AVEVA Tag']
+        Channels = ['Channel Name']
         Header1 = ['Header 1']
         Header2 = ['Header 2']
         Header3 = ['Header 3']
@@ -573,6 +576,9 @@ def SingleColumn(Report, KMTagList):
                 #lookup the aveva tag
                 AVEVATag = KMTagLookup(KMTagList,Tag)
                 AVEVATags.append(AVEVATag)
+                channelName = SignalChannelFromLog(Tag)
+                Channels.append(channelName)
+
 
                 #check to see if the tag is a calc tag or if it references a chanel 9 tag (manual entry)
                 CalcTagReferences(Tag, repName, 'Single Column')
@@ -596,6 +602,7 @@ def SingleColumn(Report, KMTagList):
             myWriter = csv.writer(csvFile)
             myWriter.writerow(Tags)
             myWriter.writerow(AVEVATags)
+            myWriter.writerow(Channels)
             myWriter.writerow(Header1)
             myWriter.writerow(Header2)
             myWriter.writerow(Header3)
