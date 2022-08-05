@@ -145,7 +145,7 @@ def xmlParse():
     SignalsWithoutLogs = csv.writer(CSVFile4)
     mypath = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/KM reports trends XML (1)'
 
-    AccumCheckTagFile = open('/Users/ryanplester/Downloads/Calc Accumulator References - Sheet1.csv')
+    AccumCheckTagFile = open('/Users/ryanplester/Downloads/Calc References - Accumulator.csv')
     CSVAccumCheckTagFile = csv.DictReader(AccumCheckTagFile)
     global Accum_Check_Tags
     for val in CSVAccumCheckTagFile:
@@ -222,6 +222,7 @@ def Manual_Tags():
 
     ManualTagList.to_csv(ProcessingFolder + "@@manual Tags DreamReport.csv",';', index=False)
 
+    #Aveva Tag List Columns
     AVEVATagList.insert(2,'IOServerComputerName','$local')
     AVEVATagList.insert(3, 'IOServerAppName', 'InSQL_MDAS')
     AVEVATagList.insert(4, 'TopicName', 'MDAS')
@@ -265,7 +266,7 @@ def ProcessFile(path):
     try:
         #get the root node and the KM tag lookup
         root_node = ET.parse(path).getroot()
-        KMLookupCSV = open("/Users/ryanplester/Downloads/KM Lookup - Sheet3.csv")
+        KMLookupCSV = open("/Users/ryanplester/Downloads/KM Lookup - Sheet11.csv")
         KMLookupReader = csv.reader(KMLookupCSV)
         data = list(KMLookupReader)
         KMLookupCSV.close()
@@ -287,7 +288,7 @@ def ProcessFile(path):
                     #print('singleColumn')
                     #Text = 'singleColumn'
                 #manual entries
-                if templateName == "Manual Entries by Events" or templateName == "Targets Manual Entries Per":
+                if templateName == "Manual Entries by Events" or templateName == "Targets Manual Entries Per" or templateName == "Log-Sheet Single" or templateName == "AMSO4-OpLog":
                     ManualEntriesbyEvent(tag,data)
                     reportType = 'Manual'
                     #Text = 'singleColumn'
@@ -428,6 +429,8 @@ def ProductionReport(Report, KMTagList):
             csvFile = open(ProcessingFolder + "" + repName + ".csv", 'w', encoding='UTF8')
             myWriter = csv.writer(csvFile)
             myWriter.writerows(rowDataItems)
+            if len(rowDataItems) > 30:
+                print(repName + " has " + str(len(rowDataItems)) + " items.")
             csvFile.close()
 
 
@@ -446,6 +449,7 @@ def ManualEntriesbyEvent(Report, KMTagList):
         SignalNames = ['Signal Name']
         InputNames = ['Input Names']
         ChannelNames = ['Channel Names']
+        SQLItems = ['SQL Lines']
         print(repName)
         repName = repName.replace("/","_")
 
@@ -490,16 +494,46 @@ def ManualEntriesbyEvent(Report, KMTagList):
                     #Signal exists, log exists but its not in our lookup table
                     else:
                         Row = [repName]
-                        Values = LogTag.attrib.values()
+                        #Values = LogTag.attrib.values()
                         Row.append(XMLAttribValue(LogTag, LogKeys['ritext']))
                         Row.append(XMLAttribValue(LogTag, LogKeys['description']))
                         Row.append(XMLAttribValue(LogTag, LogKeys['valuesignal']))
                         ErrorTagsInLog.writerow(Row)
 
                 #append info to the arrays for writing to the CSV files
+                SQLExec = "exec sherritt_ManualValueInsert '[tp#EntryTime]', ['f#" + InputName + ""'], '"" + AVEVATag + "'"
                 AVEVATags.append(AVEVATag)
                 SignalNames.append(SignalName)
                 InputNames.append(InputName)
+                SQLItems.append(SQLExec)
+            LogElements = Report.findall('.//PROPERTY[@' + valuerepitemKey + ']')
+            for LogElement in LogElements:
+
+                LogTag = XMLAttribValue(LogElement, valuerepitemKey)
+                # get the parent so we can find the label that is also under this parent
+
+
+
+                AVEVATag = KMTagLookup(KMTagList, LogTag)
+                if AVEVATag == '':
+
+                    Row = [repName]
+                    #Values = LogTag.attrib.values()
+                    Row.append(XMLAttribValue(LogElement, LogKeys['ritext']))
+                    Row.append(XMLAttribValue(LogElement, LogKeys['description']))
+                    Row.append(XMLAttribValue(LogElement, LogKeys['valuesignal']))
+                    ErrorTagsInLog.writerow(Row)
+
+                # append info to the arrays for writing to the CSV files
+
+                InputName = AVEVATag.replace(".PV","")
+                SQLExec = "exec sherritt_ManualValueInsert '[tp#EntryTime]', [f#" + InputName + "], '" + AVEVATag + "'"
+                SQLItems.append(SQLExec)
+                AVEVATags.append(AVEVATag)
+                InputNames.append(InputName)
+
+
+
 
         except Exception as ex:
             print('Error {0}'.format(str(ex)))
@@ -513,6 +547,11 @@ def ManualEntriesbyEvent(Report, KMTagList):
             myWriter.writerow(InputNames)
             myWriter.writerow(SignalNames)
             myWriter.writerow(AVEVATags)
+            myWriter.writerow(SQLItems)
+            itemCount = len(InputNames)
+            if itemCount > 30:
+                print(repName + " has " + str(itemCount) + " items.")
+
             csvFile.close()
 def FolderPathFromReportXMLNode(reportNode, rootNode):
     folderNode = FindReportFolder(reportNode, rootNode)
@@ -606,6 +645,9 @@ def SingleColumn(Report, KMTagList):
             myWriter.writerow(Header1)
             myWriter.writerow(Header2)
             myWriter.writerow(Header3)
+            itemCount = len(Tags)
+            if itemCount > 30:
+                print(repName + " has " + str(itemCount) + " items.")
             csvFile.close()
 
 def ChannelNamefromSignalName(SignalName):
@@ -705,7 +747,7 @@ def LogTagFromSignalTag(SignalTag):
 def InitXML():
     global LogXML
     if LogXML is None:
-        path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/XML export/Logs 2022-03-18.xml'
+        path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/XML export/Logs.xml'
 
         LogXML = ET.parse(path).getroot()
 
@@ -723,7 +765,7 @@ def LogXMLLookup(Tag):
 def InitSignalXML():
     global SignalXML
     if SignalXML is None:
-        path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/XML export/Signals 2022-03-18.xml'
+        path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/XML export/Signals.xml'
 
         SignalXML = ET.parse(path).getroot()
 
