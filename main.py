@@ -501,7 +501,11 @@ def ManualEntriesbyEvent(Report, KMTagList):
                         ErrorTagsInLog.writerow(Row)
 
                 #append info to the arrays for writing to the CSV files
-                SQLExec = "exec sherritt_ManualValueInsert '[tp#EntryTime]', ['f#" + InputName + ""'], '"" + AVEVATag + "'"
+                InputName = re.sub('\W+', '_', InputName)
+                InputName = InputName.rstrip('_')
+                if InputName[0].isdigit():
+                    InputName = "t" + InputName
+                SQLExec = "exec sherritt_ManualValueInsert '[tp#EntryTime]', [f#" + InputName + "], '" + AVEVATag + "'"
                 AVEVATags.append(AVEVATag)
                 SignalNames.append(SignalName)
                 InputNames.append(InputName)
@@ -527,6 +531,8 @@ def ManualEntriesbyEvent(Report, KMTagList):
                 # append info to the arrays for writing to the CSV files
 
                 InputName = AVEVATag.replace(".PV","")
+                if InputName[0].isdigit():
+                    InputName = "t" + InputName
                 SQLExec = "exec sherritt_ManualValueInsert '[tp#EntryTime]', [f#" + InputName + "], '" + AVEVATag + "'"
                 SQLItems.append(SQLExec)
                 AVEVATags.append(AVEVATag)
