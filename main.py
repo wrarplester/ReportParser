@@ -448,6 +448,7 @@ def ManualEntriesbyEvent(Report, KMTagList):
         AVEVATags = ['AVEVA Tag']
         SignalNames = ['Signal Name']
         InputNames = ['Input Names']
+        LogNames = ['Log Names']
         ChannelNames = ['Channel Names']
         SQLItems = ['SQL Lines']
         print(repName)
@@ -467,7 +468,7 @@ def ManualEntriesbyEvent(Report, KMTagList):
                 Parent = Report.find(Filter)
                 inputFilter = './/PROPERTY[@' + keyKey + '="InputName"]'
                 InputProp = Parent.find(inputFilter)
-                InputName = XMLAttribValue(InputProp,valueKey)
+                #InputName = XMLAttribValue(InputProp,valueKey)
 
                 #find the log tag that is associated with our signal name
                 LogTag = LogTagFromSignalTag(SignalName)
@@ -501,13 +502,14 @@ def ManualEntriesbyEvent(Report, KMTagList):
                         ErrorTagsInLog.writerow(Row)
 
                 #append info to the arrays for writing to the CSV files
-                InputName = re.sub('\W+', '_', InputName)
-                InputName = InputName.rstrip('_')
-                if InputName[0].isdigit():
-                    InputName = "t" + InputName
+                InputName = AVEVATag.replace(".PV", "")
+                if len(InputName) > 0:
+                    if InputName[0].isdigit():
+                        InputName = "t" + InputName
                 SQLExec = "exec sherritt_ManualValueInsert '[tp#EntryTime]', [f#" + InputName + "], '" + AVEVATag + "'"
                 AVEVATags.append(AVEVATag)
                 SignalNames.append(SignalName)
+                LogNames.append(XMLAttribValue(LogTag,LogKeys['ritext']))
                 InputNames.append(InputName)
                 SQLItems.append(SQLExec)
             LogElements = Report.findall('.//PROPERTY[@' + valuerepitemKey + ']')
@@ -531,12 +533,14 @@ def ManualEntriesbyEvent(Report, KMTagList):
                 # append info to the arrays for writing to the CSV files
 
                 InputName = AVEVATag.replace(".PV","")
-                if InputName[0].isdigit():
-                    InputName = "t" + InputName
+                if len(InputName) > 0:
+                    if InputName[0].isdigit():
+                        InputName = "t" + InputName
                 SQLExec = "exec sherritt_ManualValueInsert '[tp#EntryTime]', [f#" + InputName + "], '" + AVEVATag + "'"
                 SQLItems.append(SQLExec)
                 AVEVATags.append(AVEVATag)
                 InputNames.append(InputName)
+                LogNames.append(LogTag)
 
 
 
@@ -551,6 +555,7 @@ def ManualEntriesbyEvent(Report, KMTagList):
             csvFile = open(ProcessingFolder + "" + repName + ".csv", 'w', encoding='UTF8')
             myWriter = csv.writer(csvFile)
             myWriter.writerow(InputNames)
+            myWriter.writerow(LogNames)
             myWriter.writerow(SignalNames)
             myWriter.writerow(AVEVATags)
             myWriter.writerow(SQLItems)
