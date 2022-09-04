@@ -288,7 +288,8 @@ def ProcessFile(path):
                     #print('singleColumn')
                     #Text = 'singleColumn'
                 #manual entries
-                if templateName == "Manual Entries by Events" or templateName == "Targets Manual Entries Per" or templateName == "Log-Sheet Single" or templateName == "AMSO4-OpLog":
+                if templateName == "Manual Entries by Events" or templateName == "Targets Manual Entries Per" or templateName == "Log-Sheet Single" or templateName == "AMSO4-OpLog" \
+                        or templateName == 'Manual Entry by Event 8' or templateName == 'Manual Entries Periodical':
                     ManualEntriesbyEvent(tag,data)
                     reportType = 'Manual'
                     #Text = 'singleColumn'
@@ -747,20 +748,28 @@ def KMTagLookup(KMTagList, Tag):
 #finds the log tag which references a given signal tag
 def LogTagFromSignalTag(SignalTag):
 
-    AVEVATag = ''
-    if LogXML is None:
-        InitXML()
-    Filter = './/REPITEM[@' + LogKeys['valuesignal_signalitem_signame'] + '="' + SignalTag + '"]'
-    TagElement = LogXML.find(Filter)
-    return TagElement
+    try:
+        AVEVATag = ''
+        if LogXML is None:
+            InitXML()
+        Filter = './/REPITEM[@' + LogKeys['valuesignal_signalitem_signame'] + '="' + SignalTag + '"]'
+        TagElement = LogXML.find(Filter)
+        return TagElement
+    except Exception as ex:
+        print('Error getting log tag for signal {0}'.format(SignalTag))
+        return ''
+
 
 #loads the log tag xml file
 def InitXML():
-    global LogXML
-    if LogXML is None:
-        path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/XML export/Logs.xml'
+    try:
+        global LogXML
+        if LogXML is None:
+            path = '/Users/ryanplester/WRA Dropbox/Projects/Sherritt Historian Replacement/XML export/Logs.xml'
 
-        LogXML = ET.parse(path).getroot()
+            LogXML = ET.parse(path).getroot()
+    except Exception as ex:
+        print('Error initializing XML: {0}'.format(ex))
 
 #returns the xml element from log tags xml for a given tag name
 def LogXMLLookup(Tag):
