@@ -289,7 +289,7 @@ def ProcessFile(path):
                     #Text = 'singleColumn'
                 #manual entries
                 if templateName == "Manual Entries by Events" or templateName == "Targets Manual Entries Per" or templateName == "Log-Sheet Single" or templateName == "AMSO4-OpLog" \
-                        or templateName == 'Manual Entry by Event 8' or templateName == 'Manual Entries Periodical':
+                        or templateName == 'Manual Entry by Event 8' or templateName == 'Manual Entries Periodical' or templateName == 'OxyComp-OpLog' or templateName == 'One Manual Entry by Event':
                     ManualEntriesbyEvent(tag,data)
                     reportType = 'Manual'
                     #Text = 'singleColumn'
